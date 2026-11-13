@@ -39,6 +39,14 @@ Menu screens shown here:
 
 ![RPOD UI design mock-up](pictures/ui-design.jpg)
 
+And the same screens on the real device (captured straight from the framebuffer over USB):
+
+| Boot intro | Now Playing |
+|:---:|:---:|
+| ![Boot intro](pictures/screen-intro.png) | ![Now Playing](pictures/screen-now-playing.png) |
+| **Menu** | **PlayList** |
+| ![Menu](pictures/screen-menu.png) | ![PlayList](pictures/screen-playlist.png) |
+
 ## Hardware
 
 | Part | Detail |
