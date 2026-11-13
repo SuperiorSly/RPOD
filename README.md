@@ -34,18 +34,9 @@ A DIY iPod-style MP3 player built on an ESP32 **"Cheap Yellow Display"** (ESP32-
 
 ## The UI
 
-The screens follow this design mock-up — the firmware implements the Now Playing, PlayList and
-Menu screens shown here:
-
-![RPOD UI design mock-up](pictures/ui-design.jpg)
-
-And the same screens on the real device (captured straight from the framebuffer over USB):
-
-| Boot intro | Now Playing |
-|:---:|:---:|
-| ![Boot intro](pictures/screen-intro.png) | ![Now Playing](pictures/screen-now-playing.png) |
-| **Menu** | **PlayList** |
-| ![Menu](pictures/screen-menu.png) | ![PlayList](pictures/screen-playlist.png) |
+Portrait 240x320, dark theme with a warm accent colour: Now Playing (cover art, song title,
+progress bar), PlayList, and a slide-over Menu (WiFi, Shuffle, Brightness, Bluetooth, Settings).
+The boot intro greets with a Pacifico-font animation.
 
 ## Hardware
 
@@ -81,7 +72,6 @@ Phase2_Buttons/           bring-up sketch: button wiring test
 SDBridge/                 bring-up sketch: microSD smoke test
 ipod_project_prompt.md    the original project brief
 ui_spec.md                the UI design specification
-pictures/                 UI design mock-up and device photos
 tg_relay.example.ps1      template for the PC-side Telegram relay
 tg_relay_start.bat        launcher stub (points at the local, uncommitted relay)
 ```
