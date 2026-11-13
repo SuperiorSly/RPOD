@@ -32,6 +32,13 @@ A DIY iPod-style MP3 player built on an ESP32 **"Cheap Yellow Display"** (ESP32-
 - **Linear volume curve** on the internal 8-bit DAC (the default 60% sits in the comfortable range)
 - Multiple UI themes (accent colour) and brightness settings stored in flash
 
+## The UI
+
+The screens follow this design mock-up — the firmware implements the Now Playing, PlayList and
+Menu screens shown here:
+
+![RPOD UI design mock-up](pictures/ui-design.jpg)
+
 ## Hardware
 
 | Part | Detail |
@@ -66,6 +73,7 @@ Phase2_Buttons/           bring-up sketch: button wiring test
 SDBridge/                 bring-up sketch: microSD smoke test
 ipod_project_prompt.md    the original project brief
 ui_spec.md                the UI design specification
+pictures/                 UI design mock-up and device photos
 tg_relay.example.ps1      template for the PC-side Telegram relay
 tg_relay_start.bat        launcher stub (points at the local, uncommitted relay)
 ```

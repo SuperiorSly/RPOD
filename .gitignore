@@ -18,6 +18,9 @@ PROJECT_NOTES.md
 *.jpg
 *.jpeg
 *.png
+# ...except UI pictures in the pictures/ folder, which ARE published
+!pictures/*.jpg
+!pictures/*.png
 
 # =====================================================================
 #  Arduino / build artifacts
