@@ -14,6 +14,7 @@
 #include "telegram.h"
 #include "ui.h"
 #include "hwtest.h"
+#include "shot.h"
 
 static void scanProgress(int done, int total, const char* name) {
   char b[64];
@@ -54,6 +55,8 @@ void setup() {
 }
 
 void loop() {
+  shotPoll();
+  if (gShotHold) { displayLoop(); delay(2); return; }   // USB dump running: render only
   uiLoop();
   settingsLoop();
   delay(2);

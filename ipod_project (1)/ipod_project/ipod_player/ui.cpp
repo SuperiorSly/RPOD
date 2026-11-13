@@ -12,6 +12,7 @@
 #include "telegram.h"
 #include "sdcard.h"
 #include <lvgl.h>
+#include "shot.h"
 
 // ---- generated intro assets (plain-C files: font_pacifico_32.c, heart_img.c) ----
 #if INTRO_ENABLED
@@ -726,7 +727,7 @@ static void introYCb(void* v, int32_t y)       { lv_obj_set_y((lv_obj_t*)v, y); 
 
 void uiIntro() {
   uint32_t heapBefore = ESP.getFreeHeap();
-  uint32_t t0 = millis();
+  uint32_t introMs = 0, lastMs = millis();
 
   // ---- own screen; everything sits inside ONE container = one fade target ---
   lv_obj_t* scrIntro = lv_obj_create(NULL);
@@ -815,12 +816,16 @@ void uiIntro() {
 
   // ---- run until INTRO_MS; any button press skips instantly -----------------
   bool skip = false, fading = false;
-  while (millis() - t0 < INTRO_MS) {
+  while (introMs < INTRO_MS) {
+    uint32_t nowMs = millis();
+    if (!gShotHold) introMs += nowMs - lastMs;   // a USB snapshot pauses the intro clock
+    lastMs = nowMs;
+    shotPoll();
     buttonsPoll();
     BtnEvent e;
     while (buttonsGet(e)) { if (e.type == BE_PRESS) skip = true; }
     if (skip) break;
-    if (!fading && millis() - t0 >= INTRO_MS - 300) {   // final 300 ms: stop loops, fade all
+    if (!fading && introMs >= INTRO_MS - 300) {   // final 300 ms: stop loops, fade all
       fading = true;
       lv_anim_del(img, NULL);                           // heartbeat first, then re-use the object
       for (int i = 0; i < 4; i++) lv_anim_del(sp[i], NULL);

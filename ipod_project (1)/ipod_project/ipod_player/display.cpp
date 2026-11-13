@@ -1,6 +1,7 @@
 #include "display.h"
 #include "config.h"
 #include "settings.h"
+#include "shot.h"
 #include <lvgl.h>
 
 LGFX tft;
@@ -55,6 +56,7 @@ static bool               screenOn = true;
 
 static void flushCb(lv_disp_drv_t* drv, const lv_area_t* a, lv_color_t* px) {
   uint32_t w = a->x2 - a->x1 + 1, h = a->y2 - a->y1 + 1;
+  shotFlushHook(a->x1, a->y1, a->x2, a->y2, px, w * h * 2);
   tft.startWrite();
   tft.setAddrWindow(a->x1, a->y1, w, h);
   tft.writePixelsDMA((lgfx::swap565_t*)&px[0].full, w * h);

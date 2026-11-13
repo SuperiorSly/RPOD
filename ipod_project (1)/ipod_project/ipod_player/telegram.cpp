@@ -3,6 +3,7 @@
 #include "config.h"
 #include "secrets.h"
 #include "sdcard.h"
+#include "shot.h"
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <WiFiClientSecure.h>   // kept for reference (download flow may use its stream type)
@@ -328,6 +329,7 @@ static void worker(void*) {
     // skip messages that arrived while the iPod was off? no: keep them, so nothing is lost
     uint32_t fails = 0;
     while (!stopReq) {
+      while (gShotHold) vTaskDelay(pdMS_TO_TICKS(50));   // USB screen dump: stay quiet
       if (WiFi.status() != WL_CONNECTED) {
         setStatus(TG_CONNECTING, "Reconnecting...", 0);
         WiFi.reconnect(); vTaskDelay(pdMS_TO_TICKS(2000));
