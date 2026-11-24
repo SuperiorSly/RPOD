@@ -28,7 +28,9 @@ static void buildOrder(int first) {
 
 void playerInit() {
   buildOrder(-1);
-  audioSetVolume(gSettings.volume);
+  // With the VHM-314 Bluetooth receiver in use, the ESP32's own DAC must stay
+  // silent - otherwise both sources would be audible at once.
+  audioSetVolume(gSettings.bluetooth ? 0 : gSettings.volume);
   int i = gSettings.lastSongId ? libraryFindById(gSettings.lastSongId) : -1;
   if (i < 0 && libraryCount() > 0) i = 0;
   cur = i; st = PS_STOPPED; changed = true;

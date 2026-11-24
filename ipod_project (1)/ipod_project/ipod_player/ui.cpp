@@ -8,6 +8,7 @@
 #include "buttons.h"
 #include "library.h"
 #include "player.h"
+#include "audio.h"
 #include "settings.h"
 #include "telegram.h"
 #include "sdcard.h"
@@ -33,6 +34,12 @@ static const Theme THEMES[] = {
   { "Mint",   0x2DD4BF, 0x0A1212, 0x132120, 0x35605C },
   { "Gold",   0xFACC15, 0x100F08, 0x1E1C10, 0x5E5628 },
   { "Mono",   0xE5E7EB, 0x0B0B0B, 0x181818, 0x4A4A4A },
+  { "Navy",   0x60A5FA, 0x080B14, 0x121A2A, 0x33415F },
+  { "Rose",   0xFB7185, 0x12090D, 0x211319, 0x5C3A47 },
+  { "Amber",  0xFBBF24, 0x110D06, 0x20190E, 0x5D4B2B },
+  { "Cyber",  0x22D3EE, 0x061014, 0x0E1C23, 0x2A5563 },
+  { "Forest", 0x4ADE80, 0x08110B, 0x122017, 0x355942 },
+  { "Lilac",  0xC084FC, 0x0F0A15, 0x1C1527, 0x4D3B66 },
 };
 #define THEME_N ((int)(sizeof(THEMES) / sizeof(THEMES[0])))
 
@@ -202,19 +209,22 @@ static lv_obj_t *volPill, *volBar, *volLbl, *toastBox, *toastLbl;
 static uint32_t  volHideAt = 0, toastHideAt = 0;
 
 // Menu
-static lv_obj_t *dimmer, *panel, *pgMain, *pgThemes, *pgWifi;
+static lv_obj_t *dimmer, *panel, *pgMain, *pgThemes, *pgWifi, *pgBt;
 struct MItem { lv_obj_t *box, *title, *sub, *bar, *pct; };
 static MItem     mi[5];
 static const char* MI_NAMES[5] = { "WiFi", "Shuffle Playlist", "Brightness", "Bluetooth", "Settings" };
 enum { MI_WIFI, MI_SHUFFLE, MI_BRIGHT, MI_BT, MI_SETTINGS };
 struct TRow { lv_obj_t *box, *name, *chk; };
 static TRow      tr[THEME_N];
-static int       menuLevel = 0;          // 0 closed, 1 main, 2 themes, 3 wifi
+static lv_obj_t *themeList;              // scrollable list: 14 themes don't fit at once
+static int       menuLevel = 0;          // 0 closed, 1 main, 2 themes, 3 wifi, 4 bluetooth
 static int       menuFocus = 0, themeFocus = 0;
 static bool      brightEdit = false;
 static lv_obj_t *wStatus, *wName, *wBar, *wPct, *wAdded, *wLast, *wHint;
 static char      wcStatus[64], wcName[64], wcAdded[24], wcLast[64], wcPct[8];
 static char      mcWifi[24];
+static lv_obj_t *bStatus;
+static char      cbStatus[128];
 
 // input
 static uint32_t  lastInputMs = 0, lastSeekMs = 0;
@@ -531,6 +541,13 @@ static void setOnOff(lv_obj_t* sub, bool on) {
   if (on) lv_obj_add_state(sub, LV_STATE_USER_2); else lv_obj_clear_state(sub, LV_STATE_USER_2);
 }
 
+static void updateBtPage() {
+  const char* s = gSettings.bluetooth
+    ? "Bluetooth audio ON\n\nThe player's own sound is\nmuted. Pair your phone with\nthe VHM-314 receiver and\nplay music there."
+    : "Bluetooth audio OFF\n\nMusic plays from the SD card\nthrough the ESP32 DAC.";
+  setIf(bStatus, cbStatus, sizeof cbStatus, s);
+}
+
 static void updateMenuTexts() {
   TgStatus t = telegramStatus();
   const char* w = wifiPhaseShort(t.phase);
@@ -542,6 +559,21 @@ static void updateMenuTexts() {
   if (lb != gSettings.brightness) { lb = gSettings.brightness; lv_label_set_text_fmt(mi[MI_BRIGHT].sub, "%d%%", lb);
     lv_label_set_text_fmt(mi[MI_BRIGHT].pct, "%d%%", lb); lv_bar_set_value(mi[MI_BRIGHT].bar, lb * 10, LV_ANIM_OFF); }
   if (lt != gSettings.theme) { lt = gSettings.theme; lv_label_set_text(mi[MI_SETTINGS].sub, THEMES[gSettings.theme].name); }
+  updateBtPage();
+}
+
+// Bluetooth audio = the VHM-314 receiver supplies the sound, so the ESP32's
+// own DAC must be silent. Nothing is paired by the ESP32: pairing happens on
+// the phone, exactly as with any standalone Bluetooth receiver.
+static void toggleBluetooth() {
+  gSettings.bluetooth = !gSettings.bluetooth;
+  settingsDirty();
+  if (gSettings.bluetooth) { playerStopAll(); audioSetVolume(0); }
+  else                       audioSetVolume(gSettings.volume);
+  updateMenuTexts();
+  uiToast(gSettings.bluetooth
+    ? "Bluetooth audio ON\nPlayer sound muted.\nPlay from your phone."
+    : "Bluetooth audio OFF\nSD-card playback restored.");
 }
 
 static void updateMenuFocus() {
@@ -582,7 +614,12 @@ static void updateWifiPage() {
   setIf(wLast, wcLast, sizeof wcLast, t.added ? t.last : "");
 }
 
-static lv_obj_t* pageOf(int level) { return level == 2 ? pgThemes : level == 3 ? pgWifi : pgMain; }
+static lv_obj_t* pageOf(int level) {
+  if (level == 2) return pgThemes;
+  if (level == 3) return pgWifi;
+  if (level == 4) return pgBt;
+  return pgMain;
+}
 
 static void gotoPage(int level) {
   if (level == menuLevel) return;
@@ -591,7 +628,11 @@ static void gotoPage(int level) {
   animX(in,  fwd ? 144 : -144, 0, MENU_ANIM_MS, lv_anim_path_ease_out);
   animX(out, 0, fwd ? -144 : 144, MENU_ANIM_MS, lv_anim_path_ease_out);
   menuLevel = level;
-  if (level == 2) themeFocus = gSettings.theme;
+  if (level == 2) {
+    themeFocus = gSettings.theme;
+    lv_obj_scroll_to_view(tr[themeFocus].box, LV_ANIM_ON);   // bring the selected theme into view
+  }
+  if (level == 4) updateBtPage();
   updateMenuFocus(); updateMenuTexts();
 }
 
@@ -602,7 +643,7 @@ static void hideMenuReady(lv_anim_t*) {
 static void openMenu() {
   if (menuLevel) return;
   menuLevel = 1; menuFocus = 0; brightEdit = false;
-  lv_obj_set_x(pgMain, 0); lv_obj_set_x(pgThemes, 144); lv_obj_set_x(pgWifi, 144);
+  lv_obj_set_x(pgMain, 0); lv_obj_set_x(pgThemes, 144); lv_obj_set_x(pgWifi, 144); lv_obj_set_x(pgBt, 144);
   updateMenuTexts(); updateMenuFocus();
   lv_obj_clear_flag(dimmer, LV_OBJ_FLAG_HIDDEN); lv_obj_clear_flag(panel, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(dimmer); lv_obj_move_foreground(panel);
@@ -635,12 +676,17 @@ static void buildMenu() {
   mkLabel(pgMain, 14, 8, 120, &lv_font_montserrat_24, "Menu");
   for (int i = 0; i < 5; i++) mkItem(pgMain, 44 + i * 50, MI_NAMES[i], mi[i]);
 
-  // ---- themes page
+  // ---- themes page (scrollable: the list is longer than the screen)
   pgThemes = mkObj(panel, 144, 0, 144, SCREEN_H);
   mkLabel(pgThemes, 14, 8, 120, &lv_font_montserrat_24, "Themes");
+  themeList = lv_obj_create(pgThemes);
+  lv_obj_remove_style_all(themeList);
+  lv_obj_set_pos(themeList, 0, 40);
+  lv_obj_set_size(themeList, 144, SCREEN_H - 40);
+  lv_obj_set_scrollbar_mode(themeList, LV_SCROLLBAR_MODE_OFF);
   for (int i = 0; i < THEME_N; i++) {
     TRow& r = tr[i];
-    r.box = mkObj(pgThemes, 8, 44 + i * 33, 128, 30);
+    r.box = mkObj(themeList, 8, i * 33, 128, 30);
     lv_obj_add_style(r.box, &sItem, 0);
     lv_obj_add_style(r.box, &sItemSel, LV_PART_MAIN | LV_STATE_USER_1);
     lv_obj_t* sw = mkObj(r.box, 9, 6, 16, 16);
@@ -670,6 +716,17 @@ static void buildMenu() {
   wHint = mkLabel(pgWifi, 10, 252, 126, &lv_font_montserrat_12, "Play = turn WiFi off\nBack = keep it running");
   lv_label_set_long_mode(wHint, LV_LABEL_LONG_WRAP);
   greyText(wHint);
+
+  // ---- Bluetooth page (VHM-314 standalone receiver)
+  pgBt = mkObj(panel, 144, 0, 144, SCREEN_H);
+  mkLabel(pgBt, 14, 8, 120, &lv_font_montserrat_24, "Bluetooth");
+  bStatus = mkLabel(pgBt, 10, 48, 126, &lv_font_montserrat_12, "");
+  lv_label_set_long_mode(bStatus, LV_LABEL_LONG_WRAP);
+  lv_obj_add_style(bStatus, &sAccentTxt, 0);
+  lv_obj_t* btHint = mkLabel(pgBt, 10, 214, 126, &lv_font_montserrat_12,
+    "Power the VHM-314, then\nselect it in your phone's\nBluetooth settings.\n\nPlay = On / Off\nBack = Menu");
+  lv_label_set_long_mode(btHint, LV_LABEL_LONG_WRAP);
+  greyText(btHint);
 }
 
 static void buildOverlays() {
@@ -896,10 +953,12 @@ static void showScreen(bool list) {
 
 static bool playAllowed() {
   if (telegramActive()) { uiToast("WiFi is on.\nTurn it off first (Menu > WiFi)."); return false; }
+  if (gSettings.bluetooth) { uiToast("Bluetooth audio is on.\nTurn it off in Menu > Bluetooth\nto play from the SD card."); return false; }
   return true;
 }
 
 static void changeVolume(int d) {
+  if (gSettings.bluetooth) { uiToast("Volume is controlled by\nyour phone in Bluetooth mode."); return; }
   playerSetVolume((int)gSettings.volume + d);
   showVolume();
 }
@@ -926,8 +985,7 @@ static void activateItem() {
       brightEdit = true; updateMenuFocus();
       break;
     case MI_BT:
-      gSettings.bluetooth = !gSettings.bluetooth; settingsDirty(); updateMenuTexts();
-      uiToast("Bluetooth setting saved.\nBluetooth audio is not\nsupported yet.");
+      toggleBluetooth(); gotoPage(4);
       break;
     case MI_SETTINGS:
       gotoPage(2);
@@ -952,8 +1010,11 @@ static void menuEvent(const BtnEvent& e) {
     else if (press && e.id == BTN_PLAY) activateItem();
     else if (press && (e.id == BTN_BACK || e.id == BTN_HOME)) closeMenu();
   } else if (menuLevel == 2) {
-    if (e.id == BTN_UP)   { themeFocus = (themeFocus + THEME_N - 1) % THEME_N; updateMenuFocus(); }
-    else if (e.id == BTN_DOWN) { themeFocus = (themeFocus + 1) % THEME_N; updateMenuFocus(); }
+    if (e.id == BTN_UP || e.id == BTN_DOWN) {
+      themeFocus = (themeFocus + (e.id == BTN_UP ? THEME_N - 1 : 1)) % THEME_N;
+      updateMenuFocus();
+      lv_obj_scroll_to_view(tr[themeFocus].box, LV_ANIM_ON);
+    }
     else if (press && e.id == BTN_PLAY) { gSettings.theme = themeFocus; settingsDirty(); applyTheme(themeFocus); updateMenuFocus(); updateMenuTexts(); }
     else if (press && e.id == BTN_BACK) gotoPage(1);
     else if (press && e.id == BTN_HOME) closeMenu();
@@ -961,6 +1022,10 @@ static void menuEvent(const BtnEvent& e) {
     if (press && e.id == BTN_PLAY) { telegramStop(); gotoPage(1); }
     else if (press && e.id == BTN_BACK) { if (telegramStatus().phase == TG_ERROR) telegramStop(); gotoPage(1); }
     else if (press && e.id == BTN_HOME) { if (telegramStatus().phase == TG_ERROR) telegramStop(); closeMenu(); }
+  } else if (menuLevel == 4) {
+    if (press && e.id == BTN_PLAY) toggleBluetooth();
+    else if (press && e.id == BTN_BACK) gotoPage(1);
+    else if (press && e.id == BTN_HOME) closeMenu();
   }
 }
 

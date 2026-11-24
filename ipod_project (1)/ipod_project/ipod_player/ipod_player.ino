@@ -3,6 +3,7 @@
 //  Board: ESP32 Dev Module   Core: esp32 by Espressif 2.0.17
 //  Partition Scheme: "Huge APP (3MB No OTA/1MB SPIFFS)"
 // ============================================================================
+#include <WiFi.h>
 #include "config.h"
 #include "settings.h"
 #include "display.h"
@@ -25,6 +26,8 @@ static void scanProgress(int done, int total, const char* name) {
 
 void setup() {
   Serial.begin(115200);
+  WiFi.mode(WIFI_OFF);                    // stay OFF at boot; Menu > WiFi turns it on
+  Serial.println("[boot] WiFi is off at startup (Menu > WiFi to enable)");
   settingsLoad();
   buttonsInit();
   delay(30);
@@ -49,9 +52,6 @@ void setup() {
   uiStart();
   if (!sdReady()) uiToast("SD card not found.\nUse FAT32 and a /music folder.");
   Serial.printf("Ready.songs=%d heap=%u\n", libraryCount(), (unsigned)ESP.getFreeHeap());
-  // TODO: remove after WiFi debugging — auto-start the bot so no menu navigation is needed
-  Serial.println("[tg] AUTOTEST: auto-starting WiFi/bot (no menu needed)");
-  telegramStart();
 }
 
 void loop() {

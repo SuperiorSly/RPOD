@@ -30,12 +30,16 @@ A DIY iPod-style MP3 player built on an ESP32 **"Cheap Yellow Display"** (ESP32-
 - **Streaming downloads**: the relay pipes Telegram's file straight through, so the device sees download progress live instead of buffering a whole file in RAM
 - **Physical buttons** for play/pause, next/previous and volume; hold PLAY at power-on for a hardware test screen (DAC tone generator + button calibration)
 - **Linear volume curve** on the internal 8-bit DAC (the default 60% sits in the comfortable range)
-- Multiple UI themes (accent colour) and brightness settings stored in flash
+- **WiFi stays off at boot** — it is only turned on from Menu > WiFi, when you want to add songs
+- **Bluetooth audio mode**: with a VHM-314 receiver board, turning Bluetooth on mutes the ESP32's own DAC so the receiver's audio is the only sound; pairing happens on your phone
+- 14 UI themes (accent colour) and brightness settings stored in flash; long theme list scrolls
 
 ## The UI
 
 Portrait 240x320, dark theme with a warm accent colour: Now Playing (cover art, song title,
 progress bar), PlayList, and a slide-over Menu (WiFi, Shuffle, Brightness, Bluetooth, Settings).
+The WiFi page turns the radio on only while it is open; the Bluetooth page switches between the
+SD-card player and the external receiver. Themes are picked from a scrollable 14-colour list.
 The boot intro greets with a Pacifico-font animation.
 
 ## Hardware
@@ -44,7 +48,7 @@ The boot intro greets with a Pacifico-font animation.
 |---|---|
 | MCU + display | ESP32-2432S028 "CYD", 2-USB variant, **ST7789** panel (config.h has `PANEL_ST7789 1`) |
 | Storage | 32 GB microSD in the CYD slot |
-| Audio | ESP32 internal DAC on **GPIO26** wired to a 3.5 mm jack (the on-board speaker amp is not used) |
+| Audio | ESP32 internal DAC on **GPIO26** wired to a 3.5 mm jack, or a VHM-314 Bluetooth receiver in its place (Menu > Bluetooth mutes the DAC while the receiver plays) |
 | Power | 3.7 V LiPo + USB charge/boost module into the CYD's USB-C |
 | Input | 7 tactile buttons |
 
@@ -133,7 +137,8 @@ Boot behaviour knobs live in `config.h`: `INTRO_ENABLED`, `INTRO_NAME`, `INTRO_M
 
 ## Notes & limitations
 
-- The bot is only reachable while the relay script is running on the PC (by design, device RAM).
+- The bot is only reachable while the relay script is running on the PC **and** WiFi has been turned on from Menu > WiFi (the radio is off at boot).
+- The VHM-314 is a standalone receiver: the ESP32 cannot pair or see its connection. Bluetooth mode simply silences the internal player; pair and play from your phone.
 - MP3 only — the bot rejects other audio formats on purpose (the decoder is MP3-only).
 - The display is driven through LovyanGFX with the ST7789 branch enabled; the ILI9341 variant
   of the same board flips one config flag.

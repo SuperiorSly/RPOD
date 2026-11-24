@@ -309,15 +309,6 @@ static void worker(void*) {
                 (int)WiFi.status(), (unsigned)((millis() - t0) / 1000), (unsigned)ESP.getFreeHeap());
   if (WiFi.status() == WL_CONNECTED) {
     Serial.printf("[tg] WiFi CONNECTED, IP %s\n", WiFi.localIP().toString().c_str());
-    // TODO: remove after WiFi debugging — one-time network probe
-    IPAddress pIp;
-    int pDns = WiFi.hostByName("api.telegram.org", pIp);
-    WiFiClient pTcp; bool pRaw = (pDns == 1) && pTcp.connect(pIp, 443);
-    Serial.printf("[tg] PROBE dns=%d ip=%s dns1=%s rawTCP443=%s largestBlock=%u\n",
-                  pDns, pIp.toString().c_str(), WiFi.dnsIP(0).toString().c_str(),
-                  pRaw ? "OK" : "FAIL",
-                  (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-    pTcp.stop();
     setStatus(TG_CONNECTING, "Finding the PC...", 0);   // UDP broadcast discovery
     if (relayResolve()) Serial.printf("[tg] using relay %s\n", relayHost.c_str());
     else                Serial.printf("[tg] DISC found nothing; fallback %s\n", relayHost.c_str());
